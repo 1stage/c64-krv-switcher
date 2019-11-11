@@ -1,6 +1,4 @@
 # c64-krv-switcher
-A device that allows switching of both the Kernal ROM image AND the video mode (PAL/NTSC, using the VIC-II² Switcher Card)
-
 Abstract - The C64 KRV Switcher is a device that allows the switching of Kernal ROM or video mode (NTSC/PAL, via the VIC-II² card) via the keyboard rather than having physical switches accessible outside the C64 case.
 
 History - After developing the VIC-II² switcher card with Perifractic, I started searching for ways to toggle the video mode without having to have the VIC-II² DPDT switch protrude from the case. I found Sven Petersen's keyboard switcher project (open source), and also watched Adrian Black's video on toggling Kernal ROMs, and decided to develop my own solution. Sven was a tremendous help in troubleshooting the hardware, and his code (along with Adrian's) was the base on which my version was built.
