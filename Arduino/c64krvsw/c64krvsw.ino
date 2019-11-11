@@ -85,10 +85,10 @@ const int Col4 = A3;                                              // Input, colu
 const int Col7 = A4;                                              // Input, column signal, active low
 const int RESTOREPin = A5;                                        // Input, RESTORE key, active low
 const int KMax = 8;                                               // Holds the highest Kernal number
-const int KernalSlot = 0                                          // Kernal selection address in EEPROM
-const int ScanActiveSlot = 1                                      // Keyscan active address in EEPROM
-const int NPModeSlot = 2                                          // NTSC/PAL mode address in EEPROM
-const int Default_Scan_Count = 10000                              // Delay in milliseconds before reset for no scan activity
+const int KernalSlot = 0;                                         // Kernal selection address in EEPROM
+const int ScanActiveSlot = 1;                                     // Keyscan active address in EEPROM
+const int NPModeSlot = 2;                                         // NTSC/PAL mode address in EEPROM
+const int Default_Scan_Count = 10000;                             // Delay in milliseconds before reset for no scan activity
 const int Default_Restore_Count = 5000;                           // Delay in milliseconds for RESTORE key hold before reset
 
  // *** Variables ***
