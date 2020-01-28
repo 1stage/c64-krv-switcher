@@ -1,7 +1,7 @@
 #include <EEPROM.h>
 
 // C64 KRV (Kernal ROM Video) Switcher
-// v1.1 by Sean Harrington
+// v1.2 by Sean Harrington
 // Original design by Sven Petersen
 // EXROM code from Adrian Black
 //
@@ -48,6 +48,8 @@
 // ensure the system will reset in the event a bad Kernal image is loaded. If this is undesireble,
 // mode 0 is used to ignore the lack of keyboard scan.
 //
+// v1.2, 31 JAN 2020 - Removed keyboard scanning protection so make sure ALL your KERNEL images work before deploying!
+//                     Removed long RESTORE key hold for RESET
 // v1.1, 04 NOV 2019 - Rewrote number key processing routine as switch/case statement
 //                     Reworked boolean variables to evaluate themselves rather than using == comparators
 //                     Fixed main() loop key and RESTORE scan routines for sanity sake
@@ -86,22 +88,15 @@ const int Col7 = A4;                                              // Input, colu
 const int RESTOREPin = A5;                                        // Input, RESTORE key, active low
 const int KMax = 8;                                               // Holds the highest Kernal number
 const int KernalSlot = 0;                                         // Kernal selection address in EEPROM
-const int ScanActiveSlot = 1;                                     // Keyscan active address in EEPROM
 const int NPModeSlot = 2;                                         // NTSC/PAL mode address in EEPROM
-const int Default_Scan_Count = 10000;                             // Delay in milliseconds before reset for no scan activity
-const int Default_Restore_Count = 5000;                           // Delay in milliseconds for RESTORE key hold before reset
 
- // *** Variables ***
+// *** Variables ***
 byte kernal_num = 0;                                              // Kernal number
 byte kernal_addr = 0;                                             // Address bits for Kernal, always kernal_num - 1
 byte np_mode = 1;                                                 // Default NTSC/PAL mode, 1 is NTSC, 0 is PAL
 bool restore_found = false;                                       // TRUE if the RESTORE key is pressed 
-int  restore_counter = 0;                                         // Countdown for RESTORE key
 byte key = 128;                                                   // Calculate the Key
 byte columns;                                                     // Variable for reading out the column
-int  scan_counter;                                                // Countdown for keyboard scanning
-bool scan_found;                                                  // Flag for keyboard activity detected
-byte scan_active = 1;                                             // Default keyboard scan active, 1 is on 
 
 // *** Data Exchange variables for ISR (have to be volatile) ***
 volatile bool numPressed = false;                                 // ISR flag for number pressed
@@ -133,13 +128,8 @@ void setup() {                                                    // Keyboard sc
     EEPROM.write(KernalSlot, kernal_num);
   }
   
-  kernal_addr = kernal_num - 1;                                   // Calculate the address bits. It should be between 0 and 7,
+  kernal_addr = kernal_num - 1;                                   // Calculate the address bits. It should be between 0 and 7
   
-  scan_active = EEPROM.read(ScanActiveSlot);
-  if ((scan_active != 0) && (scan_active != 1)) {
-    scan_active = 1;
-    EEPROM.write(ScanActiveSlot, scan_active);
-  }
                                                                   // Last NTSC/PAL mode read from EEPROM
   np_mode = EEPROM.read(NPModeSlot);                              // Read the Video Mode from EEPROM
   if ((np_mode != 0) && (np_mode != 1)) {                         // If out of range,
@@ -151,13 +141,6 @@ void setup() {                                                    // Keyboard sc
                                                                   // Switch the KERNAL and Video Mode
   SetAddressBits( kernal_addr );                                  // Set the MS address bits for the Kernal ROM
   SetVideoBits ( np_mode );                                       // Set the video address bits
-
-  scan_counter = Default_Scan_Count;                              // Reset scan countdown
-  scan_found = false;                                             // Reset detection flag 
-
-  if (scan_active == 0) {                                         // If keyboard scanning is INACTIVE,
-    scan_found = true;                                            // set scan_found to TRUE.
-  }
   
   attachInterrupt(digitalPinToInterrupt(Row0), ISR_Row0, LOW); 
   attachInterrupt(digitalPinToInterrupt(Row3), ISR_Row3, LOW);
@@ -229,12 +212,6 @@ void SwitchKernal() {
   delay( 2000 );                                                  // Wait for two seconds
   systemUNRESET();                                                // Remove system from RESET mode
   delay( 2000 );                                                  // Wait another two seconds
-  scan_counter = Default_Scan_Count;                              // Reset scan countdown
-  if (scan_active == 1) {                                         // If we're checking for scan activity...
-    scan_found = false;                                           // ...reset detection flag
-  } else {                                                        // Otherwise we're NOT checking for scan activity...
-    scan_found = true;                                            // Set scan found to true
-  }
 }
 
 // *** Switch video mode function ***
@@ -244,19 +221,12 @@ void SwitchVideo() {
   delay( 2000 );                                                  // Wait two seconds
   systemUNRESET();                                                // Remove system from RESET mode
   delay( 2000 );                                                  // Wait another two seconds
-  scan_counter = Default_Scan_Count;                              // Reset scan countdown
-  if (scan_active == 1) {                                         // If we're checking for scan activity...
-    scan_found = false;                                           // ...reset detection flag
-  } else {                                                        // Otherwise we're NOT checking for scan activity...
-    scan_found = true;                                            // Set scan found to true
-  }
 }
 
 // *** Interrupt Service Routine for Row0 ***
 void ISR_Row0() {
   if (!numPressed) {                                              // Only process info after the flag was reset by main routine
      colData = PINC & 0x1F;                                       // Read the columns from Port C input pins register AND 0x1F
-     scan_found = true;                                           // Any activity here indicates a working Kernal
      numOdd = true;                                               // Tell system Row0 has the odd numbers
      if ((colData != 0x1F) && (colData !=0)) {                    // Only set the flag when a number is pressed 
        numPressed = true;
@@ -268,7 +238,6 @@ void ISR_Row0() {
 void ISR_Row3 () {
   if (!numPressed) {                                              // Only process info after the flag was reset by main routine
      colData = PINC & 0x1F;                                       // Read the columns from Port C input pins register AND 0x1F
-     scan_found = true;                                           // Any activity here indicates a working Kernal
      numOdd = false;                                              // Tell system Row3 has the even numbers
      if ((colData != 0x1F) && (colData !=0)) {                    // Only set the flag when a number is pressed 
        numPressed = true;
@@ -278,44 +247,12 @@ void ISR_Row3 () {
 
 // *** Main program loop ***
 void loop() {
-  
-  if (!scan_found) {                                              // If previous scan activity was NOT detected...
-    columns = PINC & 0x1F;                                        // ...read the columns from Port C input pins register AND 0x1F
-    if ((columns != 0x1F)) {                                      // If any NEW activity found...
-      scan_found = true;                                          // ...set flag.
-    } else {                                                      // Otherwise NEW scan activity was NOT detected...
-      if (scan_counter > 0) {                                     // ...If the count down has NOT elapsed...
-        scan_counter--;                                           // ......then decrement...
-        delayMicroseconds( 33 );                                  // ......and wait 33 microseconds
-      } else {                                                    // ...Otherwise the count down HAS elapsed...
-        if (scan_active == 1) {                                   // ......If we ARE scanning
-          kernal_num = 1;                                         // .........set Kernal Number 1 (it is assumed that this is not empty)
-          EEPROM.write(KernalSlot, kernal_num);                   // .........and save in EEPROM
-          kernal_addr = kernal_num - 1;                           // .........calculate the address bits
-          SwitchKernal();                                         // .........and switch kernal and reset C64
-        } else {                                                  // ......Otherwise (we are not scanning)
-            scan_counter = Default_Scan_Count;                    // .........Reset scan countdown (because it has elapsed!)
-            scan_found = true;                                    // .........and fake the scanner into thinking we're good (because we're not scanning)
-        }
-      }
-    }
-  }
-  
+    
 // *** Process RESTORE key ***
   if (digitalRead( RESTOREPin ) == HIGH) {                        // If RESTORE reading is HIGH...
      restore_found = false;                                       // ...the RESTORE key is not pressed
-     restore_counter = Default_Restore_Count;                     // ...so reset the RESTORE count down
   } else {                                                        // Otherwise the RESTORE reading is LOW...
     restore_found = true;                                         // ...and the RESTORE key is pressed,
-    if (restore_counter > 0) {                                    // ...make sure countdown hasn't expired
-      restore_counter--;                                          // ...and count down
-    } else {                                                      // ...Otherwise the RESTORE count down has elapsed...
-        systemRESET();                                            // ......so put system into RESET mode
-        scan_counter = Default_Scan_Count;                        // ......reset scan countdown
-        scan_found = false;                                       // ......reset detection flag
-        delay( 2000 );                                            // ......and wait for two seconds
-        systemUNRESET();                                          // ......then remove system from RESET mode
-    }
   }
 
 // *** Process when a NUMBER key is pressed (set by ISR) ***
@@ -333,19 +270,15 @@ void loop() {
     if ((restore_found) && (key >= 0) && (key <= 9)) {            // RESTORE + number key pressed (0 - 9)
       switch (key) {
         default:                                                  // Keys 1 - 8: Switch to ROM number 1 - 8
-          scan_active = 1;                                        // Every valid Kernal enters ACTIVE state
           kernal_num = key;                                       // Get Kernal Number
           EEPROM.write(KernalSlot, kernal_num);                   // Write Kernal number to the EEPROM
           kernal_addr = kernal_num - 1;                           // Calculate the address bits. It should be between 0 and 7,
-          EEPROM.write(ScanActiveSlot, scan_active);              // Write scan status to EEPROM
           SwitchKernal();                                         // Switch Kernal Number (also resets C64)
           break;                                                  // --- Exit this case ---
         case 0:                                                   // Key 0: Switch to ROM 1 and turn of keyboard scanning (cartridges sometimes need this)
-          scan_active = 0;                                        // Turn scan off
           kernal_num = 1;                                         // Switch to KERNAL 1 (known good CBM v3 KERNAL)
           EEPROM.write(KernalSlot, kernal_num);                   // Write Kernal number to the EEPROM
           kernal_addr = kernal_num - 1;                           // Calculate the address bits. It should be between 0 and 7,
-          EEPROM.write(ScanActiveSlot, scan_active);              // Write scan status to EEPROM
           SwitchKernal();                                         // Switch Kernal Number (also resets C64)
           break;                                                  // --- Exit this case ---
         case 9:                                                   // Key 9: Switch video modes
