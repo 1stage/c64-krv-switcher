@@ -40,16 +40,11 @@
 //    RESTORE + 7 - Kernal image in bank 7 (C000-DFFF) of 27512 loads, and system resets
 //    RESTORE + 8 - Kernal image in bank 8 (E000-FFFF) of 27512 loads, and system resets
 //    RESTORE + 9 - KRV keyboard tells the VIC-II² card to toggle modes, and system resets
-//    RESTORE + 0 - Kernal image in bank 1 (0000-1FFF) of 27512 loads, and system resets
-//                  but does not wait for a keyboard scan to happen (helps with cartridges)
+//    RESTORE + 0 - SAVED FOR FUTURE FUNCTIONALITY
 //
-// In modes 1-8, if no keyboard scan is detected, the system will automatically reset after 
-// 10 seconds, and the system loads the image in bank 1 (0000-1FFF) of the 27512 EPROM. This helps 
-// ensure the system will reset in the event a bad Kernal image is loaded. If this is undesireble,
-// mode 0 is used to ignore the lack of keyboard scan.
-//
-// v1.2, 31 JAN 2020 - Removed keyboard scanning protection so make sure ALL your KERNEL images work before deploying!
+// v1.2, 31 JAN 2020 - Removed keyboard scanning protection, so make sure ALL your KERNEL images work before deploying!
 //                     Removed long RESTORE key hold for RESET
+//                     Left RESTORE + 0 functionality open for future development
 // v1.1, 04 NOV 2019 - Rewrote number key processing routine as switch/case statement
 //                     Reworked boolean variables to evaluate themselves rather than using == comparators
 //                     Fixed main() loop key and RESTORE scan routines for sanity sake
@@ -275,12 +270,6 @@ void loop() {
           kernal_addr = kernal_num - 1;                           // Calculate the address bits. It should be between 0 and 7,
           SwitchKernal();                                         // Switch Kernal Number (also resets C64)
           break;                                                  // --- Exit this case ---
-        case 0:                                                   // Key 0: Switch to ROM 1 and turn of keyboard scanning (cartridges sometimes need this)
-          kernal_num = 1;                                         // Switch to KERNAL 1 (known good CBM v3 KERNAL)
-          EEPROM.write(KernalSlot, kernal_num);                   // Write Kernal number to the EEPROM
-          kernal_addr = kernal_num - 1;                           // Calculate the address bits. It should be between 0 and 7,
-          SwitchKernal();                                         // Switch Kernal Number (also resets C64)
-          break;                                                  // --- Exit this case ---
         case 9:                                                   // Key 9: Switch video modes
           if (np_mode == 1) {                                     // Flipping np_mode
             np_mode = 0;                                          // Now in PAL mode
@@ -289,6 +278,9 @@ void loop() {
           }
           EEPROM.write(NPModeSlot, np_mode);                      // Write the new np_mode to EEPROM
           SwitchVideo();                                          // Run the SwitchVideo() method
+          break;                                                  // --- Exit this case ---
+        case 0:                                                   // Key 0: SAVED FOR FUTURE FUNCTIONALITY
+          // ADD YOUR OWN CODE HERE FOR RESTORE + 0 CODE
           break;                                                  // --- Exit this case ---
       }
     }
